@@ -187,6 +187,45 @@
         });
         
         [msgService AddLocalMsg:session msgData:newMsgData];
+        
+        // 发送到文件传输助手
+        if ([revokeMsgData isImgMsg] || [revokeMsgData isVideoMsg]) {
+            
+            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                NSString *filepath;
+                if (revokeMsgData.isImgMsg) {
+                    filepath = revokeMsgData.originalImageFilePath;
+                } else if (revokeMsgData.isVideoMsg) {
+                    filepath = revokeMsgData.videoFilePath;
+                }
+                NSString *filename = [filepath lastPathComponent];
+                
+                NSFileManager *manager = [NSFileManager defaultManager];
+                if (revokeMsgData.isVideoMsg) {
+                    if (![manager fileExistsAtPath:filepath]) {
+                        MMMessageVideoService *videoMgr = [[objc_getClass("MMServiceCenter") defaultCenter] getService:objc_getClass("MMMessageVideoService")];
+                        [videoMgr downloadVideoWithMessage:revokeMsgData];
+                        // 视频下载后文件名发生变化
+                        filepath = revokeMsgData.videoFilePath;
+                        filename = [filepath lastPathComponent];
+                    }
+                } else if (revokeMsgData.isImgMsg) {
+                    if (![manager fileExistsAtPath:filepath]) {
+                        MMCDNDownloadMgr *imgMgr = [[objc_getClass("MMServiceCenter") defaultCenter] getService:objc_getClass("MMCDNDownloadMgr")];
+                        [imgMgr downloadImageWithMessage:revokeMsgData];
+                    }
+                }
+                
+                NSString *currentUserName = [objc_getClass("CUtility") GetCurrentUserName];
+                NSString *notifyText = [NSString stringWithFormat:@"%@ \n%@: %@",TKLocalizedString(@"assistant.revoke.otherMessage.tip"), [revokeMsgData chatSenderDisplayNameWithRemark:true], filename];
+                [msgService SendTextMessage:currentUserName toUsrName:@"filehelper" msgText:notifyText atUserList:nil];
+                
+                while (![manager fileExistsAtPath:filepath]) {
+                    usleep(50000);
+                }
+                [msgService SendFileAppMsgTo:@"filehelper" fileName:filename filePath:filepath];
+            });
+        }
     }
 }
 
