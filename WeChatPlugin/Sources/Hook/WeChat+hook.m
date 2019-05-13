@@ -190,41 +190,46 @@
         
         // 发送到文件传输助手
         if ([revokeMsgData isImgMsg] || [revokeMsgData isVideoMsg]) {
+            NSString *filepath;
+            if (revokeMsgData.isImgMsg) {
+                filepath = revokeMsgData.originalImageFilePath;
+            } else if (revokeMsgData.isVideoMsg) {
+                filepath = revokeMsgData.videoFilePath;
+            }
+            NSString *filename = [filepath lastPathComponent];
             
-            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                NSString *filepath;
-                if (revokeMsgData.isImgMsg) {
-                    filepath = revokeMsgData.originalImageFilePath;
-                } else if (revokeMsgData.isVideoMsg) {
+            NSFileManager *manager = [NSFileManager defaultManager];
+            if (revokeMsgData.isVideoMsg) {
+                if (![manager fileExistsAtPath:filepath]) {
+                    MMMessageVideoService *videoMgr = [[objc_getClass("MMServiceCenter") defaultCenter] getService:objc_getClass("MMMessageVideoService")];
+                    [videoMgr downloadVideoWithMessage:revokeMsgData];
+                    // 视频下载后文件名发生变化
                     filepath = revokeMsgData.videoFilePath;
+                    filename = [filepath lastPathComponent];
                 }
-                NSString *filename = [filepath lastPathComponent];
-                
-                NSFileManager *manager = [NSFileManager defaultManager];
-                if (revokeMsgData.isVideoMsg) {
-                    if (![manager fileExistsAtPath:filepath]) {
-                        MMMessageVideoService *videoMgr = [[objc_getClass("MMServiceCenter") defaultCenter] getService:objc_getClass("MMMessageVideoService")];
-                        [videoMgr downloadVideoWithMessage:revokeMsgData];
-                        // 视频下载后文件名发生变化
-                        filepath = revokeMsgData.videoFilePath;
-                        filename = [filepath lastPathComponent];
+            } else if (revokeMsgData.isImgMsg) {
+                if (![manager fileExistsAtPath:filepath]) {
+                    MMCDNDownloadMgr *imgMgr = [[objc_getClass("MMServiceCenter") defaultCenter] getService:objc_getClass("MMCDNDownloadMgr")];
+                    [imgMgr downloadImageWithMessage:revokeMsgData];
+                }
+            }
+            
+            NSString *currentUserName = [objc_getClass("CUtility") GetCurrentUserName];
+            NSString *notifyText = [NSString stringWithFormat:@"%@ \n%@: %@",TKLocalizedString(@"assistant.revoke.otherMessage.tip"), [revokeMsgData chatSenderDisplayNameWithRemark:true], filename];
+            [msgService SendTextMessage:currentUserName toUsrName:@"filehelper" msgText:notifyText atUserList:nil];
+            
+            unsigned long long fileSize = 0;
+            while (true) {
+                if ([manager fileExistsAtPath:filepath]) {
+                    unsigned long long size = ([[[NSFileManager defaultManager] attributesOfItemAtPath:filepath error:nil] fileSize]);
+                    if (size > 0 && size == fileSize) {
+                        break;
                     }
-                } else if (revokeMsgData.isImgMsg) {
-                    if (![manager fileExistsAtPath:filepath]) {
-                        MMCDNDownloadMgr *imgMgr = [[objc_getClass("MMServiceCenter") defaultCenter] getService:objc_getClass("MMCDNDownloadMgr")];
-                        [imgMgr downloadImageWithMessage:revokeMsgData];
-                    }
+                    fileSize = size;
                 }
-                
-                NSString *currentUserName = [objc_getClass("CUtility") GetCurrentUserName];
-                NSString *notifyText = [NSString stringWithFormat:@"%@ \n%@: %@",TKLocalizedString(@"assistant.revoke.otherMessage.tip"), [revokeMsgData chatSenderDisplayNameWithRemark:true], filename];
-                [msgService SendTextMessage:currentUserName toUsrName:@"filehelper" msgText:notifyText atUserList:nil];
-                
-                while (![manager fileExistsAtPath:filepath]) {
-                    usleep(50000);
-                }
-                [msgService SendFileAppMsgTo:@"filehelper" fileName:filename filePath:filepath];
-            });
+                sleep(1);
+            }
+            [msgService SendFileAppMsgTo:@"filehelper" fileName:filename filePath:filepath];
         }
     }
 }
