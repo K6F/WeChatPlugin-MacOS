@@ -123,15 +123,27 @@
         model.ignore = true;
         [ignoreSessions addObject:model];
         if (!sessionInfo.m_bShowUnReadAsRedDot) {
-            [sessionMgr MuteSessionByUserName:sessionInfo.m_nsUserName];
+            if (LargerOrEqualVersion(@"2.3.24")) {
+                [sessionMgr muteSessionByUserName:sessionInfo.m_nsUserName];
+            } else {
+                [sessionMgr MuteSessionByUserName:sessionInfo.m_nsUserName];
+            }
         }
         if (sessionInfo.m_bIsTop) {
-            [sessionMgr UntopSessionByUserName:sessionInfo.m_nsUserName];
+            if (LargerOrEqualVersion(@"2.3.24")) {
+                [sessionMgr untopSessionByUserName:sessionInfo.m_nsUserName];
+            } else {
+                [sessionMgr UntopSessionByUserName:sessionInfo.m_nsUserName];
+            }
         } 
     } else {
         [ignoreSessions removeObjectAtIndex:index];
         if (sessionInfo.m_bShowUnReadAsRedDot && sessionInfo.m_nsUserName) {
-            [sessionMgr UnmuteSessionByUserName:sessionInfo.m_nsUserName];
+            if (LargerOrEqualVersion(@"2.3.24")) {
+                [sessionMgr unmuteSessionByUserName:sessionInfo.m_nsUserName];
+            } else {
+                [sessionMgr UnmuteSessionByUserName:sessionInfo.m_nsUserName];
+            }
         }
     }
     if ([sessionMgr respondsToSelector:@selector(FFDataSvrMgrSvrFavZZ)]) {
@@ -241,7 +253,7 @@
         MMSessionMgr *sessionMgr = [[objc_getClass("MMServiceCenter") defaultCenter] getService:objc_getClass("MMSessionMgr")];
         
         if (sessionInfo.m_bShowUnReadAsRedDot && sessionInfo.m_nsUserName) {
-            [sessionMgr UnmuteSessionByUserName:sessionInfo.m_nsUserName];
+            [sessionMgr unmuteSessionByUserName:sessionInfo.m_nsUserName];
         }
         if ([sessionMgr respondsToSelector:@selector(FFDataSvrMgrSvrFavZZ)]) {
             [sessionMgr FFDataSvrMgrSvrFavZZ];
